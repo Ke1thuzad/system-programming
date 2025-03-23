@@ -4,6 +4,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define RET_ERR(x) do {int err = (x); if (err) return err;} while(0)
+#define RET_ERR_CB(x, cb) do {int err = (x); if (err) {(cb); return err;}} while(0)
+
 typedef enum errcode {
     OUT_OF_BOUNDS = 2,
     NOT_A_NUMBER,
