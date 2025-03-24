@@ -23,16 +23,18 @@ int main_menu() {
             if (cmd == LOGOUT) {
                 current = NULL;
                 printf("***Logged out!***\n");
+                printf("You're not logged in!\nUse: \n\t1. 'register' \n\t2. 'login'\n");
                 continue;
             }
 
             if (check_ban(current)) {
                 printf("Your command limit has ended!\n");
             } else {
+                if (current->limit > 0)
+                    current->limit--;
                 handle_command(cmd, userList);
             }
         } else {
-            printf("You're not logged in!\nUse: \n\t1. 'register' \n\t2. 'login'\n");
             switch ((int) cmd) {
                 case 0:
                     current = (User *) malloc(sizeof(User));
@@ -41,7 +43,13 @@ int main_menu() {
                     RET_ERR_CB(user_list_append(userList, current), user_list_destroy(userList));
                     break;
                 case 1:
-                    login_user(userList);
+                    current = login_user(userList);
+                    if (current) {
+                        printf("***Logged in as %s***\n", current->username);
+                    }
+                    break;
+                default:
+                    printf("You're not logged in!\nUse: \n\t1. 'register' \n\t2. 'login'\n");
                     break;
             }
         }
@@ -159,15 +167,26 @@ int handle_command(Command cmd, UserList *userList) {
         }
         case LOGOUT:
             break;
-        case BAN:
-//            while ((ch = fgetc(stdin)))
-            scanf("%64s", username);
-            skip_to_nl(stdin);
+        case BAN: {
+            printf("Enter username to restrict: ");
+            int i;
+            for (i = 0; i < 64; ++i) {
+                int ch = fgetc(stdin);
+                if (ch == '\n' || ch == EOF) {
+                    username[i] = '\0';
+                    break;
+                }
+                username[i] = (char) ch;
+            }
+            username[i] = '\0';
 
-            if (nread_value_str(&limit, 9)) {
+            printf("Enter command limit (0-999999999): ");
+            if (nread_value_str(&limit, 9) == 1) {
                 throw_err(INCORRECT_ARGUMENTS);
                 return 0;
             }
+
+//            skip_to_nl(stdin);
 
             if (ban_user_limit(userList, username, limit)) {
                 printf("User %s has been banned successfully for %d commands!\n", username, limit);
@@ -175,6 +194,7 @@ int handle_command(Command cmd, UserList *userList) {
                 printf("User %s does not exist!\n", username);
             }
             break;
+        }
     }
 
     return 0;
@@ -266,8 +286,8 @@ void register_user(User *result) {
     printf("***Registration successful!***\n");
 }
 
-int login_user(UserList *userList) {
-    printf("***Logging-in attempt***");
+User *login_user(UserList *userList) {
+    printf("***Logging-in attempt***\n");
     printf("Login: ");
 
     int current_input;
@@ -276,30 +296,29 @@ int login_user(UserList *userList) {
 
     current_input = scanf("%6s", login);
     if (!current_input || fgetc(stdin) != '\n')
-        return throw_err(INCORRECT_INPUT_DATA);
+        return NULL;
 
-    skip_to_nl(stdin);
+//    skip_to_nl(stdin);
 
     int pin;
 
     printf("PIN-code: ");
 
     if (nread_value_str(&pin, 6) == 1 || pin > 100000)
-        return throw_err(INCORRECT_INPUT_DATA);
+        return NULL;
 
-    skip_to_nl(stdin);
+//    skip_to_nl(stdin);
 
     for (int i = 0; i < userList->length; ++i) {
         if (strcmp(userList->users[i]->login, login) == 0 && userList->users[i]->pin == pin) {
-            printf("***Log-in attempt is successful!***");
-
-            return 1;
+            printf("***Log-in attempt is successful!***\n");
+            return userList->users[i];
         }
     }
 
-    printf("***Incorrect login or pin!***");
+    printf("***Incorrect login or pin!***\n");
 
-    return 0;
+    return NULL;
 }
 
 int get_time() {
@@ -321,7 +340,7 @@ int get_date() {
     struct tm *time_info;
     time_info = localtime(&cur_time);
 
-    printf("Current date: %02d:%02d:%04d\n", time_info->tm_mday, time_info->tm_mon, 1900 + time_info->tm_year);
+    printf("Current date: %02d:%02d:%04d\n", time_info->tm_mday, time_info->tm_mon + 1, 1900 + time_info->tm_year);
 
     return 0;
 }
@@ -336,21 +355,44 @@ int how_much_time_passed(time_t initial, time_flag flag) {
 
     switch (flag) {
         case SECONDS:
-            printf("%f seconds ", diff);
+            printf("%.2f seconds ", diff);
             break;
         case MINUTES:
             diff /= 60;
 
-            printf("%f minutes ", diff);
+            printf("%.2f minutes ", diff);
             break;
         case HOURS:
             diff /= 3600;
 
-            printf("%f hours ", diff);
+            printf("%.2f hours ", diff);
             break;
-        case YEARS:
-            printf("%d years ", localtime(&initial)->tm_year - localtime(&cur_time)->tm_year);
-            break;
+
+        case YEARS: {
+            struct tm initial_tm, cur_tm;
+
+            struct tm *initial_ptr = localtime(&initial);
+            if (!initial_ptr) {
+                return throw_err(INCORRECT_ARGUMENTS);
+            }
+            initial_tm = *initial_ptr;
+
+            struct tm *cur_ptr = localtime(&cur_time);
+            if (!cur_ptr) {
+                return throw_err(INCORRECT_ARGUMENTS);
+            }
+            cur_tm = *cur_ptr;
+
+            int year_diff = cur_tm.tm_year - initial_tm.tm_year;
+
+            if (cur_tm.tm_mon < initial_tm.tm_mon ||
+                (cur_tm.tm_mon == initial_tm.tm_mon &&
+                 cur_tm.tm_mday < initial_tm.tm_mday)) {
+                year_diff--;
+            }
+
+            printf("%d years ", year_diff);
+        }
     }
 
     printf("has passed since.\n");
@@ -396,11 +438,10 @@ int nread_value_str(int *result, int n) {
 }
 
 void skip_to_nl(FILE *stream) {
-    char character;
-
+    int c;
     do {
-        character = (char) fgetc(stream);
-    } while (character >= ' ');
+        c = fgetc(stream);
+    } while (c != '\n' && c != EOF);
 }
 
 int is_leap_year(int year) {

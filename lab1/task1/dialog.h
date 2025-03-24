@@ -33,7 +33,7 @@ void cmd_description(Command cmd);
 void help_cmd();
 
 void register_user(User *result);
-int login_user(UserList *userList);
+User *login_user(UserList *userList);
 
 int get_time();
 int get_date();
