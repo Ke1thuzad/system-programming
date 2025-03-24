@@ -46,6 +46,10 @@ void user_list_destroy(UserList *userList) {
     if (!userList->users)
         return;
 
+    for (int i = 0; i < userList->length; ++i) {
+        free(userList->users[i]);
+    }
+
     free(userList->users);
     userList->users = NULL;
 }

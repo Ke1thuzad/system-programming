@@ -38,6 +38,10 @@ int main_menu() {
             switch ((int) cmd) {
                 case 0:
                     current = (User *) malloc(sizeof(User));
+                    if (!current) {
+                        user_list_destroy(userList);
+                        return throw_err(MEMORY_NOT_ALLOCATED);
+                    }
 
                     register_user(current);
                     RET_ERR_CB(user_list_append(userList, current), user_list_destroy(userList));
@@ -56,6 +60,7 @@ int main_menu() {
     }
 
     user_list_destroy(userList);
+    free(userList);
 
     return 0;
 }
@@ -79,10 +84,10 @@ int wait_command(Command *result) {
         if (!strcmp(buf.val, "^Z") || buf.val[0] == EOF) {
             destroy(&buf);
             return 1;
-        } else if (!strcmp(buf.val, "help")) {
+        } else if (!strcmp(buf.val, "help") || !strcmp(buf.val, "register")) {
             *result = HELP;
             break;
-        } else if (!strcmp(buf.val, "time")) {
+        } else if (!strcmp(buf.val, "time") || !strcmp(buf.val, "login")) {
             *result = TIME;
             break;
         } else if (!strcmp(buf.val, "date")) {
