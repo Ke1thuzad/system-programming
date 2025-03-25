@@ -28,6 +28,9 @@ int throw_err(errcode err) {
         case DIVISION_BY_ZERO:
             err_msg = "Trying to divide by zero.";
             break;
+        case SEMAPHORE_ERROR:
+            err_msg = "Semaphore error has occurred.";
+            break;
         default:
             err_msg = "An unknown message has occurred.";
             break;
