@@ -10,11 +10,7 @@
 #include <sys/sem.h>
 #include <sys/types.h>
 
-typedef enum { EMPTY, WOMEN, MEN } BathroomState;
-
 #define N 10
-#define TOK_FILE "./tokfile"
-#define TOK_ID 55
 
 union semun {
     int val;
