@@ -10,7 +10,7 @@
 #include <sys/sem.h>
 #include <sys/types.h>
 
-#define N 10
+#define N 50
 
 union semun {
     int val;

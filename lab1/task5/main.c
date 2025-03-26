@@ -21,20 +21,6 @@ int man_queue_toilet() {
 
     printf("Man queued up!\n");
 
-    union semun args;
-
-    unsigned short vals[3];
-
-    args.array = vals;
-
-    semctl(forks_sem_id, 0, GETALL, args);
-
-    for (int i = 0; i < 3; ++i) {
-        printf("%d ", vals[i]);
-    }
-
-    printf("\n");
-
     sleep(rand() % 5);
 
     sem_wait(forks_sem_id, 1);
@@ -42,14 +28,6 @@ int man_queue_toilet() {
     sem_signal(forks_sem_id, 2);
 
     printf("Man left!\n");
-
-//    semctl(forks_sem_id, 0, GETALL, args);
-//
-//    for (int i = 0; i < 3; ++i) {
-//        printf("%d ", vals[i]);
-//    }
-//
-//    printf("\n");
 
     if (semctl(forks_sem_id, 2, GETVAL) == N) {
         printf("Last man left!\n");
@@ -137,14 +115,14 @@ int main() {
         return throw_err(SEMAPHORE_ERROR);
     }
 
-    pthread_t threads[20];
+    pthread_t threads[N * 2];
 
-    for (int i = 0; i < 10; ++i) {
+    for (int i = 0; i < N; ++i) {
         pthread_create(&threads[i], NULL, man_thread, NULL);
-        pthread_create(&threads[i + 10], NULL, woman_thread, NULL);
+        pthread_create(&threads[i + N], NULL, woman_thread, NULL);
     }
 
-    for (int i = 0; i < 20; ++i) {
+    for (int i = 0; i < N * 2; ++i) {
         pthread_join(threads[i], NULL);
     }
 
