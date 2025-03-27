@@ -1,4 +1,4 @@
-#ifndef SYSTEM_PROGRAMMING_MAIN_H
+#ifndef SYSTEM_PROGRAMMING_CLIENT_H
 #define SYSTEM_PROGRAMMING_MAIN_H
 
 #include <error_handler.h>
@@ -22,4 +22,4 @@ int sem_wait(int semid, int sem_num);
 int sem_check(int semid, int sem_num);
 int sem_signal(int semid, int sem_num);
 
-#endif //SYSTEM_PROGRAMMING_MAIN_H
+#endif //SYSTEM_PROGRAMMING_CLIENT_H

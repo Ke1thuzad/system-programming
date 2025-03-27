@@ -31,6 +31,9 @@ int throw_err(errcode err) {
         case SEMAPHORE_ERROR:
             err_msg = "Semaphore error has occurred.";
             break;
+        case SOCKET_ERROR:
+            err_msg = "Socket error has occurred.";
+            break;
         default:
             err_msg = "An unknown message has occurred.";
             break;

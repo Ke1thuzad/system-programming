@@ -10,4 +10,3 @@ file(GLOB LIB_SOURCES "${CMAKE_SOURCE_DIR}/utility/*.c" "${CMAKE_SOURCE_DIR}/uti
 add_compile_options(-Wall -Wextra -Werror -fno-omit-frame-pointer -pedantic -Wshadow -Wno-strict-prototypes)
 
 add_subdirectory(lab1)
-
