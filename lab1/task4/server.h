@@ -39,8 +39,16 @@ typedef enum Item {
     CABBAGE
 } Item;
 
+typedef struct Game {
+    int bank;
+    Item current_item;
+    int bank_inventories[2][3];
+} Game;
+
 void handle_signal();
 int check_conflicts(const int *inventory);
 void put_item(int *inventory, Item *item);
+int process_command(msg_buffer message, Game *game);
+void reset_game(Game *game);
 
 #endif //SYSTEM_PROGRAMMING_SERVER_H

@@ -25,14 +25,12 @@ int main(int argc, char **argv) {
     address.sin_port = htons(PORT);
 
     if (inet_pton(AF_INET, "127.0.0.1", &address.sin_addr) < 0) {
-        msgctl(msg_fd, IPC_RMID, NULL);
         close(client_fd);
         return throw_err(INCORRECT_ARGUMENTS);
     }
 
     int status = connect(client_fd, (struct sockaddr *) &address, sizeof(address));
     if (status < 0) {
-        msgctl(msg_fd, IPC_RMID, NULL);
         close(client_fd);
         return throw_err(SOCKET_ERROR);
     }
@@ -41,7 +39,6 @@ int main(int argc, char **argv) {
 
     size_t current_read = msgrcv(msg_fd, &message, sizeof(message) - sizeof(long), 1, 0);
     if (current_read < 1) {
-        msgctl(msg_fd, IPC_RMID, NULL);
         close(client_fd);
         return throw_err(MESSAGE_QUEUE_ERROR);
     }
@@ -49,7 +46,6 @@ int main(int argc, char **argv) {
 
     FILE *file = fopen(argv[1], "r");
     if (!file) {
-        msgctl(msg_fd, IPC_RMID, NULL);
         close(client_fd);
         return throw_err(FILE_ERROR);
     }
@@ -61,7 +57,6 @@ int main(int argc, char **argv) {
     while (!feof(file)) {
         command = get_command(file);
         if (!command) {
-            msgctl(msg_fd, IPC_RMID, NULL);
             close(client_fd);
             return throw_err(FILE_ERROR);
         }
@@ -71,6 +66,12 @@ int main(int argc, char **argv) {
 
             free(command);
         } else {
+//            if (msgrcv(msg_fd, &message, sizeof(message) - sizeof(long), 0, IPC_NOWAIT)) {
+//                if (message.msgtype == 2) {
+//                    break;
+//                }
+//            }
+
             message.command = command_id;
             message.argument = argument;
             message.msgtype = 1;
@@ -78,11 +79,18 @@ int main(int argc, char **argv) {
             free(command);
 
             if (msgsnd(msg_fd, &message, sizeof(message) - sizeof(long), 0) < 0) {
-                msgctl(msg_fd, IPC_RMID, NULL);
                 close(client_fd);
                 return throw_err(MESSAGE_QUEUE_ERROR);
             }
+
         }
+    }
+
+    message.msgtype = 2;
+
+    if (msgsnd(msg_fd, &message, sizeof(message) - sizeof(long), 0) < 0) {
+        close(client_fd);
+        return throw_err(MESSAGE_QUEUE_ERROR);
     }
 
 

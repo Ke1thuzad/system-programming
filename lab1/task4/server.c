@@ -17,6 +17,11 @@ int main() {
         return throw_err(MESSAGE_QUEUE_ERROR);
     }
 
+    struct msqid_ds info;
+    msgctl(msg_fd, IPC_STAT, &info);
+    info.msg_qnum = 0;
+    msgctl(msg_fd, IPC_SET, &info);
+
     msg_buffer message;
 
     struct sockaddr_in address;
@@ -62,10 +67,12 @@ int main() {
 
     // Game description
 
-    int bank = 0;  // 0 - left, 1 - right
-    Item current_item = EMPTY;  // 0 - empty, 1 - wolf, 2 - goat, 3 - cabbage
-    int bank_inventories[2][3] = {{1, 1, 1},
-                                  {0, 0, 0}};  // pos 0 - wolf, pos 1 - goat, pos 2 - cabbage
+    Game game = {0, EMPTY, {{1, 1, 1},
+                            {0, 0, 0}}};
+
+    // 0 - left, 1 - right
+    // 0 - empty, 1 - wolf, 2 - goat, 3 - cabbage
+    // pos 0 - wolf, pos 1 - goat, pos 2 - cabbage
 
     //
 
@@ -88,7 +95,8 @@ int main() {
             continue;
         }
 
-        current_read = msgrcv(msg_fd, &message, sizeof(message) - sizeof(long), 1, MSG_NOERROR);
+        current_read = msgrcv(msg_fd, &message, sizeof(message) - sizeof(long), 0, 0);
+        printf("%u %u %lu %d\n", message.command, message.argument, message.msgtype, message.client_fd);
         if (current_read < 1) {
             close(client_fd);
 
@@ -99,95 +107,26 @@ int main() {
             close(client_fd);
             continue;
         }
-        close(client_fd);
 
-        switch (message.command) {
-            case TAKE:
-                switch (message.argument) {
-                    case WOLF:
-                        bank_inventories[bank][0] = 0;
-                        current_item = WOLF;
-                        printf("Took wolf!\n");
-                        break;
-                    case GOAT:
-                        bank_inventories[bank][1] = 0;
-                        current_item = GOAT;
-                        printf("Took goat!\n");
-                        break;
-                    case CABBAGE:
-                        bank_inventories[bank][2] = 0;
-                        current_item = CABBAGE;
-                        printf("Took cabbage!\n");
-                        break;
-                }
-                break;
-            case PUT:
-                put_item(bank_inventories[bank], &current_item);
-                printf("Put current item!\n");
-                if (check_conflicts(bank_inventories[bank])) {
-                    printf("Conflict! Game is resetting!\n");
-                    bank = 0;
-                    current_item = EMPTY;
+        int stop = 0;
+        while (message.msgtype != 2) {  // While message type is not finishing
+            if (!stop && process_command(message, &game)) {
+                stop = 1;
+            }
 
-                    bank_inventories[0][0] = 1;
-                    bank_inventories[0][1] = 1;
-                    bank_inventories[0][2] = 1;
+            current_read = msgrcv(msg_fd, &message, sizeof(message) - sizeof(long), 0, 0);
+            printf("%u %u %lu %d\n", message.command, message.argument, message.msgtype, message.client_fd);
+            if (current_read < 1) {
+                break;
+            }
 
-                    bank_inventories[1][0] = 0;
-                    bank_inventories[1][1] = 0;
-                    bank_inventories[1][2] = 0;
-                }
+            if (message.client_fd != client_fd) {
                 break;
-            case MOVE:
-                printf("Moved to another bank!\n");
-                bank = !bank;
-                break;
-            default:
-                printf("Unknown command!\n");
-                break;
-
+            }
         }
 
-//        command = strtok(buf, " ");
 
-//        if (strcmp(command, "take") == 0) {
-//            if (current_item)
-//                put_item(bank_inventories[bank], &current_item);
-//
-//            item = strtok(NULL, " ");
-//
-//            if (strcmp(item, "wolf") == 0) {
-//                bank_inventories[bank][0] = 0;
-//                current_item = WOLF;
-//            } else if (strcmp(item, "goat") == 0) {
-//                bank_inventories[bank][1] = 0;
-//                current_item = GOAT;
-//            } else if (strcmp(item, "cabbage") == 0) {
-//                bank_inventories[bank][2] = 0;
-//                current_item = CABBAGE;
-//            } else {
-//                printf("Unknown item!\n");
-//            }
-//        } else if (strcmp(command, "put") == 0) {
-//            put_item(bank_inventories[bank], &current_item);
-//            if (check_conflicts(bank_inventories[bank])) {
-//                printf("Conflict! Game is resetting!\n");
-//                bank = 0;
-//                current_item = EMPTY;
-//
-//                bank_inventories[0][0] = 1;
-//                bank_inventories[0][1] = 1;
-//                bank_inventories[0][2] = 1;
-//
-//                bank_inventories[1][0] = 0;
-//                bank_inventories[1][1] = 0;
-//                bank_inventories[1][2] = 0;
-//            }
-//        } else if (strcmp(command, "move") == 0) {
-//            bank = !bank;
-//        } else {
-//            printf("Unknown command!\n");
-//        }
+        close(client_fd);
     }
 
     msgctl(msg_fd, IPC_RMID, NULL);
@@ -202,7 +141,14 @@ void handle_signal() {
 }
 
 int check_conflicts(const int *inventory) {
-    return !(inventory[0] && inventory[1]) || !(inventory[1] && inventory[2]);
+    if (inventory[0] && inventory[1] && inventory[2]) {
+        return 2;
+    }
+    if ((inventory[0] && inventory[1]) || (inventory[1] && inventory[2])){
+        return 1;
+    }
+
+    return 0;
 }
 
 void put_item(int *inventory, Item *item) {
@@ -224,4 +170,65 @@ void put_item(int *inventory, Item *item) {
     }
 
     *item = EMPTY;
+}
+
+int process_command(msg_buffer message, Game *game) {
+    switch (message.command) {
+        case TAKE:
+            switch (message.argument) {
+                case WOLF:
+                    game->bank_inventories[game->bank][0] = 0;
+                    game->current_item = WOLF;
+                    printf("Took wolf!\n");
+                    break;
+                case GOAT:
+                    game->bank_inventories[game->bank][1] = 0;
+                    game->current_item = GOAT;
+                    printf("Took goat!\n");
+                    break;
+                case CABBAGE:
+                    game->bank_inventories[game->bank][2] = 0;
+                    game->current_item = CABBAGE;
+                    printf("Took cabbage!\n");
+                    break;
+            }
+            break;
+        case PUT:
+            put_item(game->bank_inventories[game->bank], &game->current_item);
+            int state = check_conflicts(game->bank_inventories[game->bank]);
+            if (state) {
+                if (state == 1 || game->bank == 0) {
+                    printf("Conflict! Game is resetting!\n");
+                } else {
+                    printf("Game is finished successfully!\n");
+                }
+                reset_game(game);
+
+                return 1;
+            }
+            break;
+        case MOVE:
+            printf("Moved to another bank!\n");
+            game->bank = !game->bank;
+            break;
+        default:
+            printf("Unknown command!\n");
+            break;
+
+    }
+
+    return 0;
+}
+
+void reset_game(Game *game) {
+    game->bank = 0;
+    game->current_item = EMPTY;
+
+    game->bank_inventories[0][0] = 1;
+    game->bank_inventories[0][1] = 1;
+    game->bank_inventories[0][2] = 1;
+
+    game->bank_inventories[1][0] = 0;
+    game->bank_inventories[1][1] = 0;
+    game->bank_inventories[1][2] = 0;
 }
