@@ -9,7 +9,7 @@ int man_queue_toilet() {
         return throw_err(SEMAPHORE_ERROR);
 
 
-    if (sem_wait(forks_sem_id, 1) == -1) {
+    if (sem_nowait(forks_sem_id, 1) == -1) {
         return 0;
     }
 
@@ -17,13 +17,13 @@ int man_queue_toilet() {
 
     sem_signal(forks_sem_id, 1);
 
-    sem_wait(forks_sem_id, 2);
+    sem_nowait(forks_sem_id, 2);
 
     printf("Man queued up!\n");
 
     sleep(rand() % 5);
 
-    sem_wait(forks_sem_id, 1);
+    sem_nowait(forks_sem_id, 1);
 
     sem_signal(forks_sem_id, 2);
 
@@ -48,7 +48,7 @@ int woman_queue_toilet() {
         return throw_err(SEMAPHORE_ERROR);
 
 
-    if (sem_wait(forks_sem_id, 0) == -1) {
+    if (sem_nowait(forks_sem_id, 0) == -1) {
         return 0;
     }
 
@@ -56,13 +56,13 @@ int woman_queue_toilet() {
 
     sem_signal(forks_sem_id, 0);
 
-    sem_wait(forks_sem_id, 2);
+    sem_nowait(forks_sem_id, 2);
 
     printf("Woman queued up!\n");
 
     sleep(rand() % 5);
 
-    sem_wait(forks_sem_id, 0);
+    sem_nowait(forks_sem_id, 0);
 
     sem_signal(forks_sem_id, 2);
 
@@ -132,7 +132,7 @@ int main() {
     return 0;
 }
 
-int sem_wait(int semid, int sem_num) {
+int sem_nowait(int semid, int sem_num) {
     struct sembuf sb = {sem_num, -1, 0};
     return semop(semid, &sb, 1);
 }

@@ -15,7 +15,7 @@ union semun {
     unsigned short *array;
 };
 
-int sem_wait(int semid, int sem_num);
+int sem_nowait(int semid, int sem_num);
 int sem_signal(int semid, int sem_num);
 
 #endif //SYSTEM_PROGRAMMING_CLIENT_H

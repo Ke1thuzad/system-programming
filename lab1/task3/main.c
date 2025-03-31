@@ -4,14 +4,14 @@ int take_fork(int phil_num, int sem_id) {
     int left = (phil_num + 4) % 5;
     int right = (phil_num + 1) % 5;
 
-    sem_wait(sem_id, 5);
+    sem_nowait(sem_id, 5);
 
-    if (sem_wait(sem_id, left) == -1) {
+    if (sem_nowait(sem_id, left) == -1) {
         sem_signal(sem_id, 5);
         return 0;
     }
 
-    if (sem_wait(sem_id, right) == -1) {
+    if (sem_nowait(sem_id, right) == -1) {
         sem_signal(sem_id, left);
         sem_signal(sem_id, 5);
         return 0;
@@ -61,7 +61,7 @@ void* philosopher(void *num) {
     return NULL;
 }
 
-int sem_wait(int semid, int sem_num) {
+int sem_nowait(int semid, int sem_num) {
     struct sembuf sb = {sem_num, -1, IPC_NOWAIT};
     return semop(semid, &sb, 1);
 }

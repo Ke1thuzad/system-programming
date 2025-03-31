@@ -34,6 +34,9 @@ int throw_err(errcode err) {
         case SOCKET_ERROR:
             err_msg = "Socket error has occurred.";
             break;
+        case MESSAGE_QUEUE_ERROR:
+            err_msg = "Message queue error has occurred.";
+            break;
         default:
             err_msg = "An unknown message has occurred.";
             break;

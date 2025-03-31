@@ -17,7 +17,8 @@ typedef enum errcode {
     INCORRECT_INPUT_DATA,
     DIVISION_BY_ZERO,
     SEMAPHORE_ERROR,
-    SOCKET_ERROR
+    SOCKET_ERROR,
+    MESSAGE_QUEUE_ERROR
 } errcode;
 
 int throw_err(errcode err);
