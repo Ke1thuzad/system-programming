@@ -12,7 +12,7 @@
 #include <error_handler.h>
 
 int process_xor(const char *filename, int N);
-int process_mask(const char *filename, uint32_t mask);
+int process_mask(const char *filename, unsigned int mask);
 int process_copy(const char *filename, int N);
 int process_find(char **input_files, int input_files_count, const char *search_str);
 char *generate_copy_name(const char *original, int copy_num);

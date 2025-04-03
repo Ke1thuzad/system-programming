@@ -8,23 +8,21 @@ int is_flag(const char *arg) {
         long n = strtol(n_str, &end, 10);
         if (*end != '\0' || n < 2 || n > 6) return 0;
         return 1;
-    } else if (strcmp(arg, "mask") == 0) return 1;
-    else if (strncmp(arg, "copy", 4) == 0) {
+    } else if (strncmp(arg, "copy", 4) == 0) {
         const char *n_str = arg + 4;
         if (strlen(n_str) == 0) return 0;
         char *end;
         long n = strtol(n_str, &end, 10);
         if (*end != '\0' || n <= 0) return 0;
         return 1;
-    } else if (strcmp(arg, "find") == 0) return 1;
+    } else if (strcmp(arg, "find") == 0 || strcmp(arg, "mask") == 0) return 1;
     return 0;
 }
 
 int main(int argc, char *argv[]) {
-    if (argc < 2) {
-        fprintf(stderr, "Usage: %s <input_files...> <flag> [options]\n", argv[0]);
+    if (argc < 2)
         return throw_err(INCORRECT_ARGUMENTS);
-    }
+
 
     int i;
     for (i = 1; i < argc; i++) if (is_flag(argv[i])) break;

@@ -73,29 +73,24 @@ Directory* process_paths(char *paths_data) {
             continue;
         }
 
-        // Получаем абсолютный путь
         char resolved_path[1024];
         if (!realpath(path, resolved_path)) {
             path += strlen(path) + 1;
             continue;
         }
 
-        // Создаем временную копию для dirname/basename
         char *temp_path = strdup(resolved_path);
         if (!temp_path) throw_err(MEMORY_NOT_ALLOCATED);
 
-        // Разделяем путь
         char *dir_path = dirname(temp_path);
         char *file_name = basename(temp_path);
 
-        // Фильтруем . и ..
         if (strcmp(file_name, ".") == 0 || strcmp(file_name, "..") == 0) {
             free(temp_path);
             path += strlen(path) + 1;
             continue;
         }
 
-        // Создаем копии для хранения в структурах
         char *dir_copy = strdup(dir_path);
         char *file_copy = strdup(file_name);
         if (!dir_copy || !file_copy) {
@@ -105,14 +100,12 @@ Directory* process_paths(char *paths_data) {
             throw_err(MEMORY_NOT_ALLOCATED);
         }
 
-        // Добавляем в структуры
         Directory *dir = find_directory(directories, dir_copy);
         if (!dir) {
             dir = add_directory(&directories, dir_copy);
         }
         add_file(dir, file_copy);
 
-        // Освобождаем временные ресурсы
         free(temp_path);
         free(dir_copy);
         free(file_copy);
