@@ -9,7 +9,7 @@ int main_menu() {
     if (!current)
         return throw_err(MEMORY_NOT_ALLOCATED);
 
-    register_user(current);
+    register_user(current, userList);
 
     RET_ERR_CB(user_list_append(userList, current), user_list_destroy(userList));
 
@@ -43,7 +43,7 @@ int main_menu() {
                         return throw_err(MEMORY_NOT_ALLOCATED);
                     }
 
-                    register_user(current);
+                    register_user(current, userList);
                     RET_ERR_CB(user_list_append(userList, current), user_list_destroy(userList));
                     break;
                 case 1:
@@ -238,7 +238,7 @@ void help_cmd() {
     }
 }
 
-void register_user(User *result) {
+void register_user(User *result, UserList *users) {
     static int signed_up_count = 0;
 
     printf("***Registration process***\n");
@@ -248,12 +248,27 @@ void register_user(User *result) {
 
     char buf[65] = "";
 
+    int found = 0;
+
     current_input = scanf("%64s", buf);
-    while (!current_input) {
-        printf("Entered data is not correct\n");
+    if (current_input) {
+        for (int i = 0; i < users->length; ++i) {
+            if (strcmp(users->users[i]->username, buf) == 0)
+                found = 1;
+        }
+    }
+    while (!current_input || found) {
+        printf("Entered data is not correct or nickname is already occupied!\n");
         printf("Please enter nickname again (64 characters max, others are truncated):");
         current_input = scanf("%64s", buf);
-        skip_to_nl(stdin);
+//        skip_to_nl(stdin);
+        found = 0;
+        if (current_input) {
+            for (int i = 0; i < users->length; ++i) {
+                if (strcmp(users->users[i]->username, buf) == 0)
+                    found = 1;
+            }
+        }
     }
 
     strncpy(result->username, buf, 64);
@@ -265,11 +280,24 @@ void register_user(User *result) {
     printf("Please enter login (alphanumeric, 6 characters max, others are truncated): ");
 
     current_input = scanf("%6s", buf);
-    while (!current_input || !filter_string(buf, is_alnum)) {
-        printf("Entered data is not correct\n");
+    if (current_input) {
+        for (int i = 0; i < users->length; ++i) {
+            if (strcmp(users->users[i]->login, buf) == 0)
+                found = 1;
+        }
+    }
+    while (!current_input || !filter_string(buf, is_alnum) || found) {
+        printf("Entered data is not correct or login is already occupied!\n");
         printf("Please enter login again (alphanumeric, 6 characters max): ");
         current_input = scanf("%6s", buf);
-        skip_to_nl(stdin);
+//        skip_to_nl(stdin);
+        found = 0;
+        if (current_input) {
+            for (int i = 0; i < users->length; ++i) {
+                if (strcmp(users->users[i]->login, buf) == 0)
+                    found = 1;
+            }
+        }
     }
 
     strncpy(result->login, buf, 6);

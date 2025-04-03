@@ -32,7 +32,7 @@ int wait_command(Command *result);
 void cmd_description(Command cmd);
 void help_cmd();
 
-void register_user(User *result);
+void register_user(User *result, UserList *users);
 User *login_user(UserList *userList);
 
 int get_time();

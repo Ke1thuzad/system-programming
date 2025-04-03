@@ -37,6 +37,9 @@ int throw_err(errcode err) {
         case MESSAGE_QUEUE_ERROR:
             err_msg = "Message queue error has occurred.";
             break;
+        case FORK_ERROR:
+            err_msg = "Fork error has occurred.";
+            break;
         default:
             err_msg = "An unknown message has occurred.";
             break;

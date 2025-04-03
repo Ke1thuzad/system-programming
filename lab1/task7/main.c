@@ -34,6 +34,7 @@ int parse_directory(const char *path) {
     chdir(cur_path);
 
     free(cur_path);
+    
     return 0;
 }
 
