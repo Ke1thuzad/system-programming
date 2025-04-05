@@ -9,6 +9,7 @@
 #include <sys/msg.h>
 #include <unistd.h>
 #include <error_handler.h>
+#include <sys/stat.h>
 
 #define MAX_MSG_SIZE 4088
 
@@ -21,7 +22,5 @@ typedef struct response_msg {
     long mtype;
     char data[MAX_MSG_SIZE];
 } ResponseMsg;
-
-
 
 #endif //SYSTEM_PROGRAMMING_CLIENT_H

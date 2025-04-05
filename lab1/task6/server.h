@@ -10,6 +10,7 @@
 #include <sys/msg.h>
 #include <libgen.h>
 #include <unistd.h>
+#include <sys/stat.h>
 
 #define MAX_MSG_SIZE 4088
 
