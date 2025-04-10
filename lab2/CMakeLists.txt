@@ -1,6 +1,4 @@
-add_compile_options(-Wno-strict-prototypes)
-
-foreach(TASK_NUM RANGE 1 7)
+foreach(TASK_NUM RANGE 1 4)
     set(TASK_FOLDER "task${TASK_NUM}")
     if(IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${TASK_FOLDER})
         add_subdirectory(${TASK_FOLDER})
