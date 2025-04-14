@@ -17,20 +17,49 @@ enum LogLevels {
 class Logger {
     inline static std::mutex log_mutex;
     LogLevels levelBorder;
-    std::ofstream writer {};
+    std::ofstream writer;
+    std::string logDirectory = "./logs";
+    std::string filePrefix = "app";
 
-    std::string GenerateLogName(const std::string& prefix = "app");
-    static const char* logLevelToString(LogLevels lvl);
-public:
-    Logger() : levelBorder(WARNING) { OpenLogFile(); }
-    explicit Logger(LogLevels level) : levelBorder(level) { OpenLogFile(); }
-    explicit Logger(const std::string &prefix) : levelBorder(WARNING) { OpenLogFile(prefix); }
-    Logger(LogLevels level, const std::string &path) : levelBorder(level) { OpenLogFile(path); }
-
-    ~Logger() { writer.close(); }
+    Logger(LogLevels level, const std::string& dir, const std::string& prefix)
+            : levelBorder(level), logDirectory(dir), filePrefix(prefix)
+    {
+        OpenLogFile();
+    }
 
     void OpenLogFile();
-    void OpenLogFile(const std::string &path);
+    static const char* logLevelToString(LogLevels lvl);
+    static std::string GenerateLogName(const std::string& dir, const std::string& prefix, LogLevels level);
+public:
+    class Builder {
+        LogLevels level = WARNING;
+        std::string directory = "./logs";
+        std::string prefix = "app";
+
+    public:
+        Builder& SetLogLevel(LogLevels lvl) {
+            level = lvl;
+            return *this;
+        }
+
+        Builder& SetDirectory(const std::string& dir) {
+            directory = dir;
+            return *this;
+        }
+
+        Builder& SetPrefix(const std::string& pfx) {
+            prefix = pfx;
+            return *this;
+        }
+
+        std::unique_ptr<Logger> Build() {
+            return std::unique_ptr<Logger>(
+                    new Logger(level, directory, prefix)
+            );
+        }
+    };
+
+    ~Logger() { writer.close(); }
 
     void Log(LogLevels msgLevel, const std::string &message);
     void LogDebug(const std::string &message) { Log(DEBUG, message); };

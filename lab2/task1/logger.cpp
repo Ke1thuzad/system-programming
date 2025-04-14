@@ -2,25 +2,28 @@
 
 int main() {
     try {
-        Logger logger;
+        auto logger = Logger::Builder()
+                .SetLogLevel(WARNING)
+                .SetDirectory("logs")
+                .SetPrefix("app")
+                .Build();
 
-        logger.LogError("Something really bad happened!");
-        logger.LogDebug("Wtf");
-        logger.LogWarning("Help me!");
-        logger.LogInfo("Huhh");
-        logger.LogCritical("Huhh (but critical!!!)");
+        logger->LogError("Something really bad happened!");
+        logger->LogDebug("Wtf");
+        logger->LogWarning("Help me!");
+        logger->LogInfo("Huhh");
+        logger->LogCritical("Huhh (but critical!!!)");
     } catch (const char *err_msg) {
         std::cout << err_msg << std::endl;
     }
     return 0;
 }
 
-std::string Logger::GenerateLogName(const std::string &prefix) {
+std::string Logger::GenerateLogName(const std::string& dir, const std::string& prefix, LogLevels level) {
     std::lock_guard<std::mutex> lock(log_mutex);
 
-    const std::string log_dir = "./logs";
-    if (!std::filesystem::exists(log_dir)) {
-        std::filesystem::create_directories(log_dir);
+    if (!std::filesystem::exists(dir)) {
+        std::filesystem::create_directories(dir);
     }
 
     auto now = std::chrono::system_clock::now();
@@ -34,7 +37,7 @@ std::string Logger::GenerateLogName(const std::string &prefix) {
 #endif
 
     std::ostringstream oss;
-    oss << "./logs/" << prefix << "_" << logLevelToString(levelBorder) << "_" << std::put_time(&tm, "%Y%m%d_%H%M%S");
+    oss << dir << "/" << prefix << "_" << logLevelToString(level) << "_" << std::put_time(&tm, "%Y%m%d_%H%M%S");
     std::string base = oss.str() + ".log";
 
     int count = 1;
@@ -46,15 +49,7 @@ std::string Logger::GenerateLogName(const std::string &prefix) {
 }
 
 void Logger::OpenLogFile() {
-    std::string path = GenerateLogName();
-    writer.open(path, std::ios::app);
-
-    if (!writer.is_open()) {
-        throw std::runtime_error("Cannot open log file: " + path);
-    }
-}
-
-void Logger::OpenLogFile(const std::string &path) {
+    std::string path = GenerateLogName(logDirectory, filePrefix, levelBorder);
     writer.open(path, std::ios::app);
 
     if (!writer.is_open()) {
