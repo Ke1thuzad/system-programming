@@ -60,7 +60,7 @@ class Logger {
 
     void OpenLogFile();
     static const char* logLevelToString(LogLevels lvl);
-    static std::string GenerateLogName(const std::string& dir, const std::string& prefix);
+    static std::string GenerateLogName(const std::string& dir, const std::string& prefix, LogLevels lvl);
     static std::string getTimestamp();
 
 public:

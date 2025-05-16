@@ -1,4 +1,4 @@
-add_executable(lab2task2 generator.cpp generator.h ../task1/logger.cpp ../task1/logger.h
+add_executable(lab2task2 generator.h ../task1/logger.cpp ../task1/logger.h
         thread_safe_queue.cpp
         thread_safe_queue.h
         ip_stats.h

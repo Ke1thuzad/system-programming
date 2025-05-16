@@ -7,6 +7,24 @@
 #include <iomanip>
 #include <cstdio>
 
+int main() {
+    auto logger = Logger::Builder().Build();
+    auto logger2 = Logger::Builder().SetLogLevel(DEBUG).Build();
+
+    logger->LogDebug("test");
+    logger2->LogInfo("test2");
+    logger->LogWarning("test");
+    logger2->LogError("test2");
+    logger->LogCritical("test");
+    logger2->LogDebug("test2");
+    logger->LogInfo("test");
+    logger2->LogWarning("test2");
+    logger->LogError("test");
+    logger2->LogCritical("test2");
+
+    return 0;
+}
+
 std::string Logger::getTimestamp() {
     auto now = std::chrono::system_clock::now();
     auto now_c = std::chrono::system_clock::to_time_t(now);
@@ -23,7 +41,7 @@ std::string Logger::getTimestamp() {
     return oss.str();
 }
 
-std::string Logger::GenerateLogName(const std::string& dir, const std::string& prefix) {
+std::string Logger::GenerateLogName(const std::string& dir, const std::string& prefix, LogLevels lvl) {
     std::lock_guard<std::mutex> lock(log_file_op_mutex);
 
     try {
@@ -45,7 +63,7 @@ std::string Logger::GenerateLogName(const std::string& dir, const std::string& p
 
     std::filesystem::path base_path = std::filesystem::path(dir);
     std::ostringstream filename_base_oss;
-    filename_base_oss << prefix << "_" << std::put_time(&tm, "%Y%m%d_%H%M%S");
+    filename_base_oss << prefix << "_" << logLevelToString(lvl) << "_" << std::put_time(&tm, "%Y%m%d_%H%M%S");
 
     std::string filename_base = filename_base_oss.str();
     std::string extension = ".log";
@@ -64,7 +82,7 @@ std::string Logger::GenerateLogName(const std::string& dir, const std::string& p
 }
 
 void Logger::OpenLogFile() {
-    std::string path = GenerateLogName(logDirectory, filePrefix);
+    std::string path = GenerateLogName(logDirectory, filePrefix, levelBorder);
     try {
         file_writer_ptr = std::make_unique<std::ofstream>(path, std::ios::app);
 
