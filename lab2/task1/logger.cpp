@@ -7,7 +7,10 @@
 #include <iomanip>
 #include <cstdio>
 
+
 int main() {
+//    std::ofstream stream("file.txt");
+
     auto logger = Logger::Builder().Build();
     auto logger2 = Logger::Builder().SetLogLevel(DEBUG).Build();
 
