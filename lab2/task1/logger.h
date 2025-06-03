@@ -1,7 +1,7 @@
 #ifndef SYSTEM_PROGRAMMING_LOGGER_H
 #define SYSTEM_PROGRAMMING_LOGGER_H
 
-#include "../task2/thread_safe_queue.h" // Include queue definition
+#include "../task2/thread_safe_queue.h"
 
 #include <iostream>
 #include <fstream>
@@ -25,7 +25,7 @@ enum LogLevels {
 };
 
 class Logger {
-    inline static std::mutex log_file_op_mutex;
+    inline static std::mutex log_file_op_mutex{};
     std::mutex instance_mutex{};
 
     LogLevels levelBorder = WARNING;
@@ -34,7 +34,7 @@ class Logger {
     ThreadSafeQueue<std::string>* target_queue = nullptr;
 
     std::string logDirectory = ".";
-    std::string filePrefix = "app";
+    std::string filePrefix = "log";
 
     Logger(LogLevels level, std::string dir, std::string prefix)
             : levelBorder(level), logDirectory(std::move(dir)), filePrefix(std::move(prefix))
@@ -42,11 +42,11 @@ class Logger {
         OpenLogFile();
     }
 
-    Logger(LogLevels level, std::ofstream* stream)
+    Logger(LogLevels level, std::ostream* stream)
             : levelBorder(level), writer(stream)
     {
         if (!writer || !writer->good()) {
-            throw std::runtime_error("ofstream is invalid.");
+            throw std::runtime_error("ostream is invalid.");
         }
     }
 
@@ -66,37 +66,56 @@ class Logger {
 public:
 
     class Builder {
-        LogLevels level = INFO;
-        std::ofstream* ext_ofstream_ptr = nullptr;
+        LogLevels level = WARNING;
+        std::ostream* ext_ostream_ptr = nullptr;
         ThreadSafeQueue<std::string>* queue_ptr = nullptr;
         std::string directory = "logs";
-        std::string prefix = "app";
+        std::string prefix = "log";
 
     public:
         Builder& SetLogLevel(LogLevels lvl) { level = lvl; return *this; }
         Builder& SetDirectory(const std::string& dir) {
-            if (ext_ofstream_ptr || queue_ptr) throw std::runtime_error("Cannot set directory when using external stream or queue.");
-            directory = dir; return *this;
+            if (ext_ostream_ptr || queue_ptr)
+                throw std::runtime_error("Cannot set directory when using stream or queue.");
+
+            directory = dir;
+            return *this;
         }
         Builder& SetPrefix(const std::string& pfx) {
-            if (ext_ofstream_ptr || queue_ptr) throw std::runtime_error("Cannot set prefix when using external stream or queue.");
-            prefix = pfx; return *this;
+            if (ext_ostream_ptr || queue_ptr)
+                throw std::runtime_error("Cannot set prefix when using stream or queue.");
+
+            prefix = pfx;
+            return *this;
         }
-        Builder& SetStream(std::ofstream* stream) {
-            if (queue_ptr) throw std::runtime_error("Cannot set both ofstream and queue");
-            if (!stream || !stream->good()) throw std::runtime_error("ofstream for logger is not valid.");
-            ext_ofstream_ptr = stream; return *this;
+        Builder& SetStream(std::ostream* stream) {
+            if (queue_ptr)
+                throw std::runtime_error("Cannot set both ostream and queue");
+            if (!stream || !stream->good())
+                throw std::runtime_error("ostream for logger is not valid.");
+
+            ext_ostream_ptr = stream;
+            return *this;
         }
         Builder& SetQueue(ThreadSafeQueue<std::string>* queue) {
-            if (ext_ofstream_ptr) throw std::runtime_error("Cannot set both ofstream and queue");
-            if (!queue) throw std::runtime_error("queue pointer for logger is null.");
-            queue_ptr = queue; return *this;
+            if (ext_ostream_ptr)
+                throw std::runtime_error("Cannot set both ostream and queue");
+
+            if (!queue)
+                throw std::runtime_error("queue pointer for logger is null.");
+
+            queue_ptr = queue;
+            return *this;
         }
 
         std::unique_ptr<Logger> Build() {
-            if (queue_ptr) return std::unique_ptr<Logger>(new Logger(level, queue_ptr));
-            if (ext_ofstream_ptr) return std::unique_ptr<Logger>(new Logger(level, ext_ofstream_ptr));
-            return std::unique_ptr<Logger>(new Logger(level, directory, prefix)); // Default file
+            if (queue_ptr)
+                return std::unique_ptr<Logger>(new Logger(level, queue_ptr));
+
+            if (ext_ostream_ptr)
+                return std::unique_ptr<Logger>(new Logger(level, ext_ostream_ptr));
+
+            return std::unique_ptr<Logger>(new Logger(level, directory, prefix));
         }
     };
 
