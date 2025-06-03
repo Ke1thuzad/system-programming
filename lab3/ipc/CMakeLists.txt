@@ -1,0 +1,5 @@
+link_libraries(exceptions)
+
+add_subdirectory(message_queue)
+add_subdirectory(semaphore)
+add_subdirectory(shared_memory)
