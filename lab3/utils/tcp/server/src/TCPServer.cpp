@@ -30,17 +30,14 @@ void TcpServer::stop() {
 
     _running = false;
 
-    // Close server socket to unblock accept
     if (_server_socket && _server_socket->isValid()) {
         _server_socket->close();
     }
 
-    // Join server thread
     if (_server_thread.joinable()) {
         _server_thread.join();
     }
 
-    // Disconnect all clients
     {
         std::lock_guard<std::mutex> lock(_clients_mutex);
         for (auto& [client, thread] : _client_threads) {
@@ -70,7 +67,6 @@ void TcpServer::run() {
             }
         } catch (const SocketAcceptException& e) {
             if (_running) {
-                // Log error but keep running
                 std::cerr << "Accept error: " << e.what() << std::endl;
             }
         }
@@ -82,28 +78,27 @@ void TcpServer::handleClient(std::unique_ptr<TcpSocket> client_socket) {
 
     try {
         while (_running) {
-            DataBuffer data = client_socket->receiveAll();
-            if (!data.empty()) {
+            try {
+                DataBuffer data = client_socket->receiveAll();
                 _client_handler(data, client_handle);
             }
+            catch (const SocketDisconnectedException&) {
+                break;
+            }
         }
-    } catch (const SocketReadException& e) {
-        // Client disconnected or error
-    } catch (const std::exception& e) {
-        std::cerr << "Client handling error: " << e.what() << std::endl;
-    }
+    } catch (...) {}
 
-    // Cleanup
     if (_disconnection_handler) {
         _disconnection_handler(client_handle);
     }
 
+    client_socket->close();
+
     {
         std::lock_guard<std::mutex> lock(_clients_mutex);
-        auto it = _client_threads.find(client_handle);
-        if (it != _client_threads.end()) {
+        if (auto it = _client_threads.find(client_handle); it != _client_threads.end()) {
             if (it->second.joinable()) {
-                it->second.join();
+                it->second.detach();
             }
             _client_threads.erase(it);
         }
@@ -123,7 +118,6 @@ void TcpServer::disconnectClient(socket_t client) {
     std::lock_guard<std::mutex> lock(_clients_mutex);
     auto it = _client_threads.find(client);
     if (it != _client_threads.end()) {
-        // Close socket to unblock read
         TcpSocket socket(client);
         socket.close();
 

@@ -39,6 +39,12 @@ public:
             : SocketException("Socket accept failed", error_code) {}
 };
 
+class SocketDisconnectedException : public SocketException {
+public:
+    explicit SocketDisconnectedException(int error_code = 0)
+            : SocketException("Connection closed by peer", error_code) {}
+};
+
 class SocketConnectionException : public SocketException {
 public:
     explicit SocketConnectionException(int error_code = 0)

@@ -64,64 +64,75 @@ int GameWorker::HandleClientCommand() {
     return 0;
 }
 
-void GameWorker::NewGame(unsigned long long int user_id) {
+void GameWorker::NewGame(int64_t user_id) {
     _games.emplace(user_id, SticksGame());
     _logger->LogInfo(std::format("User {} has started a new game", user_id));
 }
 
-void GameWorker::MoveCommand(unsigned long long int user_id, int move_amount) {
+void GameWorker::MoveCommand(int64_t user_id, int move_amount) {
     auto game = _games.find(user_id);
     if (game == _games.end()) {
         throw SubServerException("Player has no active game");
     }
 
-    game->second.Move(move_amount);
+    try {
+        game->second.Move(move_amount);
+    } catch (const SubServerException& e) {
+        _logger->LogError(e.what());
+        _games.erase(user_id);
+        return;
+    }
 
     int win = game->second.CheckWin();
-    if (win)
+    if (win) {
         FinishGame(game, win);
-
-    game->second.BotMove();
-    win = game->second.CheckWin();
-    if (win)
-        FinishGame(game, win);
-
-    _messageQueue.send(user_id, game->second.current_amount, SERVER_MOVE);
+    } else {
+        try {
+            game->second.BotMove();
+        } catch (const SubServerException& e) {
+            _logger->LogError(e.what());
+            _games.erase(user_id);
+            return;
+        }
+        win = game->second.CheckWin();
+        if (win) {
+            FinishGame(game, win);
+        } else {
+            _messageQueue.send(user_id, game->second.current_amount, SERVER_MOVE);
+        }
+    }
 }
 
-void GameWorker::FinishGame(auto game, int win) {
+void GameWorker::FinishGame(std::unordered_map<int64_t, SticksGame>::iterator game, int win) {
+    int arg = (win == 1) ? -1 : -2;
+    _messageQueue.send(game->first, arg, SERVER_MOVE);
+
     if (win == 1) {
         _logger->LogInfo(std::format("User {} has won a game", game->first));
-
-        _messageQueue.send(game->first, 1, SERVER_MOVE | (1 << 7));
     } else {
         _logger->LogInfo(std::format("User {} has lost a game", game->first));
-
-        _messageQueue.send(game->first, -1, SERVER_MOVE | (1 << 7));
     }
 
     _games.erase(game);
 }
 
 void SticksGame::Move(int move_amount) {
-    if (current_amount - move_amount < 0 || move_amount > max_pick || move_amount < min_pick)
+    if (move_amount > max_pick || move_amount < min_pick)
         throw SubServerException("Invalid move");
 
     current_amount -= move_amount;
-
     move = !move;
 }
 
 int SticksGame::CheckWin() const {
     if (current_amount <= 0) {
-        return (!move) * 2 - 1;
+        return move * 2 - 1;
     }
 
     return 0;
 }
 
 void SticksGame::BotMove() {
-    int move_amount = min_pick + rand() % (max_pick - min_pick);
-
+    int move_amount = min_pick + rand() % (max_pick - min_pick + 1);
     Move(move_amount);
 }

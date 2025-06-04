@@ -2,26 +2,7 @@
 
 int main() {
     try {
-//        SharedMemory shm("/sys/", 111, MAX_FILE_SIZE);
-//
-//        std::filesystem::path path = "test.cpp";
-//
-//        ushort filename_size;
-//        std::string filename;
-//        uint32_t size;
-//        char *data;
-//
-//        FileToCompilationData(path, filename_size, filename, size, &data);
-//
-//        int flag = 1;
-//
-//        shm.write((void *) &flag, 1);
-//        shm.write((void *) &filename_size, sizeof(ushort));
-//        shm.write((void *) filename.c_str(), filename_size);
-//        shm.write((void *) &size, sizeof(uint32_t));
-//        shm.write((void *) data, size);
-
-        CompilerWorker compiler("/sys/", 111, DEBUG);
+        CompilerWorker compiler("/tmp", 1234, DEBUG);
 
         while (!CompilerWorker::global_stop_requested.load()) {
 

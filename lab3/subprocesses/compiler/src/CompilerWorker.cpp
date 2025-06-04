@@ -40,13 +40,12 @@ void CompilerWorker::Run() {
     _logger->LogInfo("Compiler SubServer started working");
     while (_isRunning && !global_stop_requested.load()) {
         if (!_sharedMemory.readyToRead(1)) {
-//                std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
         }
 
         ReadNextFile();
         if (!_fileQueue.IsEmpty()) {
-            std::pair<uint64_t, fspath> args;
+            std::pair<int64_t, fspath> args;
 
             _fileQueue.Pop(args);
 
@@ -68,99 +67,101 @@ void CompilerWorker::Run() {
 
 void CompilerWorker::ReadNextFile() {
     // FORMAT:
-    // [1 byte read flag (server(1)/client(2))] [8 bytes uint64_t user_id] [2 bytes ushort filename_size] [--- *filename_size* bytes for filename ---] [4 bytes uint32_t size] [--- *size* bytes of file data ---] --- UP TO 10MB
+    // [1 byte read flag (server(1)/client(2))] [8 bytes int64_t user_id] [2 bytes ushort filename_size] [--- *filename_size* bytes for filename ---] [4 bytes uint32_t size] [--- *size* bytes of file data ---] --- UP TO 10MB
+    try {
+        _sharedMemory.read_cursor = 1;
 
-    _sharedMemory.read_cursor = 1;
+        _sharedMemory.block();
 
-    char *temp_data_reader = _sharedMemory.readNext(sizeof(uint64_t));
+        std::vector<char> user_id_vec = _sharedMemory.read(sizeof(int64_t), _sharedMemory.read_cursor);
+        int64_t user_id = *reinterpret_cast<const int64_t*>(user_id_vec.data());
 
-    uint64_t user_id = *((uint64_t *)temp_data_reader);
+        std::vector<char> filename_size_vec = _sharedMemory.readNext(sizeof(ushort));
+        ushort filename_size = *reinterpret_cast<const ushort*>(filename_size_vec.data());
 
-    delete[] temp_data_reader;
+        std::vector<char> filename_vec = _sharedMemory.readNext(filename_size);
+        std::string filename(filename_vec.begin(), filename_vec.end());
 
-    temp_data_reader = _sharedMemory.readNext(sizeof(ushort));
+        std::vector<char> file_size_vec = _sharedMemory.readNext(sizeof(uint32_t));
+        uint32_t file_size = *reinterpret_cast<const uint32_t*>(file_size_vec.data());
 
-    ushort filename_size = *((ushort *) temp_data_reader);
+        std::vector<char> file_data = _sharedMemory.readNext(file_size);
 
-    delete[] temp_data_reader;
+        _sharedMemory.clear();
 
-    char *filename = (char *) _sharedMemory.readNext(filename_size);
+        _sharedMemory.unblock();
 
-    temp_data_reader = _sharedMemory.readNext(SIZE_OFFSET);
+        fspath path("./files/");
+        if (!std::filesystem::exists(path)) {
+            std::filesystem::create_directories(path);
+        }
+        path /= filename;
 
-    uint32_t size = *((uint32_t *) temp_data_reader);
+        {
+            std::ofstream writer(path, std::ios_base::binary | std::ios_base::out | std::ios_base::trunc);
+            if (!writer.good()) {
+                throw SubServerException("Writer is bad");
+            }
 
-    delete[] temp_data_reader;
+            writer.write(file_data.data(), file_data.size());
+        }
 
-    char *data = _sharedMemory.readNext(size);
+        _fileQueue.Push({user_id, path});
 
-    _sharedMemory.clear();
-
-
-    _semaphore.wait_get(0);
-
-    fspath path("./files/");
-
-    if (!std::filesystem::exists(path))
-        std::filesystem::create_directories(path);
-
-    path /= filename;
-
-    delete[] filename;
-
-    std::ofstream writer(path, std::ios_base::binary | std::ios_base::out | std::ios_base::trunc);
-
-    if (!writer.good()) {
-        throw SubServerException("Writer is bad");
+    } catch (const std::exception& e) {
+        _logger->LogError("Error reading file from shared memory");
+        _sharedMemory.clear();
+        throw;
     }
-
-    writer.write(data, size);
-
-    writer.close();
-
-    delete[] data;
-
-    _semaphore.release(0);
-
-
-    _fileQueue.Push({user_id, path});
 }
 
-void CompilerWorker::SendFileBack(uint64_t user_id, const CompilerWorker::fspath &path) {
-    ushort filename_size;
-    std::string filename;
-    uint32_t size;
-    char *data;
+void CompilerWorker::SendFileBack(int64_t user_id, const fspath &path) {
+    try {
+        ushort filename_size;
+        std::string filename;
+        uint32_t size;
+        std::vector<char> data;
 
-    FileToCompilationData(path, filename_size, filename, size, &data);
+        FileToCompilationData(path, filename_size, filename, size, data);
 
-    int flag = 2;
+        uint8_t flag = 2;
+        _sharedMemory.clear();
 
-    _sharedMemory.write((void *) &flag, 1);
-    _sharedMemory.write((void *) &user_id, sizeof(user_id));
-    _sharedMemory.write((void *) &filename_size, sizeof(ushort));
-    _sharedMemory.write((void *) filename.c_str(), filename_size);
-    _sharedMemory.write((void *) &size, sizeof(uint32_t));
-    _sharedMemory.write((void *) data, size);
+        _sharedMemory.block();
 
-    delete[] data;
+        _sharedMemory.write(std::span<const char>(reinterpret_cast<const char*>(&flag), 1));
+        _sharedMemory.write(std::span<const char>(reinterpret_cast<const char*>(&user_id), sizeof(user_id)));
+        _sharedMemory.write(std::span<const char>(reinterpret_cast<const char*>(&filename_size), sizeof(filename_size)));
+        _sharedMemory.write(std::span<const char>(filename.data(), filename_size));
+        _sharedMemory.write(std::span<const char>(reinterpret_cast<const char*>(&size), sizeof(size)));
+        _sharedMemory.write(std::span<const char>(data.data(), data.size()));
+
+        _sharedMemory.unblock();
+
+    } catch (const std::exception& e) {
+        _logger->LogError("Error sending file back");
+        throw;
+    }
 }
 
-void CompilerWorker::Compile(uint64_t user_id, const CompilerWorker::fspath &path) {
-    if (path.extension() == ".cpp")
+void CompilerWorker::Compile(int64_t user_id, const CompilerWorker::fspath &path) {
+    std::string ext = path.extension().string();
+    std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return std::tolower(c); });
+
+    if (std::equal(ext.begin(), ext.end(), ".cpp"))
         CompileCPP(user_id, path);
-    else if (path.extension() == ".tex")
+    else if (std::equal(ext.begin(), ext.end(), ".tex"))
         CompileTex(user_id, path);
     else
         throw SubServerException("Incorrect file format: " + path.extension().string());
     _logger->LogInfo("Successfully compiled file: " + path.string());
 }
 
-void CompilerWorker::CompileCPP(uint64_t user_id, const CompilerWorker::fspath &path) {
+void CompilerWorker::CompileCPP(int64_t user_id, const CompilerWorker::fspath &path) {
     pid_t pid = fork();
     if (pid == 0) {
         chdir(path.parent_path().c_str());
-        execlp("/usr/bin/g++", "g++", path.filename().c_str(), "-o", (path.stem().string() + ".o").c_str(), nullptr);
+        execlp("/usr/bin/g++", "g++", path.filename().c_str(), "-o", (path.stem().string() + ".out").c_str(), nullptr);
 
         throw SubServerException("C++ file was not compiled");
     } else if (pid > 0) {
@@ -176,7 +177,7 @@ void CompilerWorker::CompileCPP(uint64_t user_id, const CompilerWorker::fspath &
             throw SubServerException("Abnormal child exit");
 
         fspath new_path = path;
-        new_path.replace_extension(".o");
+        new_path.replace_extension(".out");
 
         if (!std::filesystem::exists(new_path))
             throw SubServerException("C++ file was not compiled into executable file");
@@ -187,7 +188,7 @@ void CompilerWorker::CompileCPP(uint64_t user_id, const CompilerWorker::fspath &
     }
 }
 
-void CompilerWorker::CompileTex(uint64_t user_id, const CompilerWorker::fspath &path) {
+void CompilerWorker::CompileTex(int64_t user_id, const CompilerWorker::fspath &path) {
     pid_t pid = fork();
     if (pid == 0) {
         chdir(path.parent_path().c_str());
@@ -219,22 +220,19 @@ void CompilerWorker::CompileTex(uint64_t user_id, const CompilerWorker::fspath &
 }
 
 void FileToCompilationData(const std::filesystem::path &path, ushort &filename_size, std::string &filename, uint32_t &size,
-                      char **data) {
+                           std::vector<char>& data) {
     std::ifstream reader(path, std::ios_base::binary | std::ios_base::in | std::ios_base::ate);
     if (!reader.good()) {
         throw std::runtime_error("File was not opened");
     }
 
-    filename_size = path.filename().string().length() + 1;
     filename = path.filename().string();
+    filename_size = filename.size() + 1;
 
     size = static_cast<uint32_t>(reader.tellg());
+    data.resize(size);
 
     reader.seekg(0, std::ios::beg);
-
-    *data = new char[size];
-
-    reader.read(*data, size);
-
+    reader.read(data.data(), size);
     reader.close();
 }

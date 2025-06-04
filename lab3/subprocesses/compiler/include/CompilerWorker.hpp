@@ -17,7 +17,7 @@
 
 #define SIZE_OFFSET (sizeof(uint32_t))
 
-void FileToCompilationData(const std::filesystem::path& path, ushort &filename_size, std::string& filename, uint32_t &size, char** data);
+void FileToCompilationData(const std::filesystem::path& path, ushort &filename_size, std::string& filename, uint32_t &size, std::vector<char>& data);
 
 class CompilerWorker {
     using fspath = std::filesystem::path;
@@ -25,7 +25,7 @@ class CompilerWorker {
     Semaphore _semaphore;
     SharedMemory _sharedMemory;
 
-    ThreadSafeQueue<std::pair<uint64_t, fspath>> _fileQueue;
+    ThreadSafeQueue<std::pair<int64_t, fspath>> _fileQueue;
 
     std::unique_ptr<Logger> _logger;
 
@@ -49,11 +49,11 @@ public:
 
     void ReadNextFile();
 
-    void SendFileBack(uint64_t user_id, const fspath &path);
+    void SendFileBack(int64_t user_id, const fspath &path);
 
-    void Compile(uint64_t user_id, const CompilerWorker::fspath &path);
+    void Compile(int64_t user_id, const CompilerWorker::fspath &path);
 
-    void CompileCPP(uint64_t user_id, const CompilerWorker::fspath &path);
+    void CompileCPP(int64_t user_id, const CompilerWorker::fspath &path);
 
-    void CompileTex(uint64_t user_id, const CompilerWorker::fspath &path);
+    void CompileTex(int64_t user_id, const CompilerWorker::fspath &path);
 };

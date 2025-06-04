@@ -11,7 +11,7 @@ class MessageQueue {
 public:
     struct Message {
         long mtype;
-        unsigned long long user_id;
+        int64_t user_id;
         int arg;
     };
 
@@ -19,7 +19,7 @@ public:
 
     ~MessageQueue() { msgctl(_message_queue_id, IPC_RMID, nullptr); }
 
-    void send(unsigned long long user_id, int arg, long type, int flag = 0) const;
+    void send(int64_t user_id, int arg, long type, int flag = 0) const;
 
     [[nodiscard]] Message receive(long type = 0, int flag = 0) const;
 };

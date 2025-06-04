@@ -16,7 +16,7 @@ constexpr socket_t INVALID_SOCKET_VALUE = INVALID_SOCKET;
 #include <unistd.h>
 #include <fcntl.h>
 #include <arpa/inet.h>
-using socket_t = uint64_t;
+using socket_t = int64_t;
 constexpr socket_t INVALID_SOCKET_VALUE = -1;
 #endif
 

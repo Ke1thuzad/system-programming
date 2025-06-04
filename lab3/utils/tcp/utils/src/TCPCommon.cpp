@@ -106,11 +106,23 @@ void TcpSocket::close() {
 void TcpSocket::send(const void* data, size_t size) const {
     size_t total_sent = 0;
     while (total_sent < size) {
-        int sent = ::send(_socket, static_cast<const char*>(data) + total_sent, size - total_sent, 0);
+        int flags = 0;
+#ifndef _WIN32
+        flags = MSG_NOSIGNAL;
+#endif
+        int sent = ::send(_socket, static_cast<const char*>(data) + total_sent, size - total_sent, flags);
+
         if (sent <= 0) {
 #ifdef _WIN32
-            throw SocketWriteException(WSAGetLastError());
+            int err = WSAGetLastError();
+            if (err == WSAECONNRESET) {
+                throw SocketDisconnectedException();
+            }
+            throw SocketWriteException(err);
 #else
+            if (errno == EPIPE) {
+                throw SocketDisconnectedException();
+            }
             throw SocketWriteException(errno);
 #endif
         }
@@ -119,13 +131,26 @@ void TcpSocket::send(const void* data, size_t size) const {
 }
 
 void TcpSocket::send(const DataBuffer& data) const {
-    // Send size first
-    uint32_t size = htonl(static_cast<uint32_t>(data.size()));
-    send(&size, sizeof(size));
+    uint32_t net_size = htonl(static_cast<uint32_t>(data.size()));
+    send(&net_size, sizeof(net_size));
 
-    // Then send actual data
     if (!data.empty()) {
-        send(data.data(), data.size());
+        const char* ptr = reinterpret_cast<const char*>(data.data());
+        size_t total_sent = 0;
+        const size_t CHUNK_SIZE = 4096;
+
+        while (total_sent < data.size()) {
+            size_t to_send = std::min(CHUNK_SIZE, data.size() - total_sent);
+            ssize_t sent = ::send(_socket, ptr + total_sent, to_send, MSG_NOSIGNAL);
+
+            if (sent <= 0) {
+                if (errno == EPIPE || errno == ECONNRESET) {
+                    throw SocketDisconnectedException();
+                }
+                throw SocketWriteException(errno);
+            }
+            total_sent += sent;
+        }
     }
 }
 
@@ -149,17 +174,35 @@ DataBuffer TcpSocket::receive(size_t size) const {
 }
 
 DataBuffer TcpSocket::receiveAll() {
-    // First receive the size
-    uint32_t size;
-    auto sizeData = receive(sizeof(size));
-    size = *reinterpret_cast<uint32_t*>(sizeData.data());
-    size = ntohl(size);
+    uint32_t net_size;
+    ssize_t received = ::recv(_socket, reinterpret_cast<char*>(&net_size), sizeof(net_size), MSG_WAITALL);
 
-    // Then receive the actual data
-    if (size > 0) {
-        return receive(size);
+    if (received == 0) {
+        throw SocketDisconnectedException();
+    } else if (received < 0) {
+        if (errno == ECONNRESET) {
+            throw SocketDisconnectedException();
+        }
+        throw SocketReadException(errno);
     }
-    return DataBuffer();
+
+    uint32_t size = ntohl(net_size);
+
+    if (size > 0) {
+        DataBuffer buffer(size);
+        received = ::recv(_socket, reinterpret_cast<char*>(buffer.data()), size, MSG_WAITALL);
+
+        if (received == 0) {
+            throw SocketDisconnectedException();
+        } else if (received < 0 || static_cast<uint32_t>(received) != size) {
+            if (errno == ECONNRESET) {
+                throw SocketDisconnectedException();
+            }
+            throw SocketReadException(errno);
+        }
+        return buffer;
+    }
+    return {};
 }
 
 void TcpSocket::setNonBlocking(bool non_blocking) const {

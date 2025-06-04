@@ -25,14 +25,14 @@ void TcpClient::disconnect() {
 
 void TcpClient::send(const DataBuffer& data) {
     if (!isConnected()) {
-        throw SocketConnectionException(0, "Not connected");
+        throw SocketConnectionException(0);
     }
     _socket->send(data);
 }
 
 DataBuffer TcpClient::receive() {
     if (!isConnected()) {
-        throw SocketConnectionException(0, "Not connected");
+        throw SocketConnectionException(0);
     }
     return _socket->receiveAll();
 }

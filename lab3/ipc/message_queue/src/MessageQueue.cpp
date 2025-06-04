@@ -17,10 +17,10 @@ MessageQueue::MessageQueue(const char *token_path, int proj_id) {
     }
 }
 
-void MessageQueue::send(unsigned long long user_id, int arg, long type, int flag) const {
+void MessageQueue::send(int64_t user_id, int arg, long type, int flag) const {
     Message message_s {type, user_id, arg};
 
-    if (msgsnd(_message_queue_id, &message_s, sizeof(message_s), flag) == -1) {
+    if (msgsnd(_message_queue_id, &message_s, sizeof(message_s) - sizeof(type), flag) == -1) {
         throw IPCException("Message queue message was not sent");
     }
 }
@@ -28,7 +28,7 @@ void MessageQueue::send(unsigned long long user_id, int arg, long type, int flag
 MessageQueue::Message MessageQueue::receive(long type, int flag) const {
     Message message_s{};
 
-    if (msgrcv(_message_queue_id, &message_s, sizeof(message_s), type, flag) == -1) {
+    if (msgrcv(_message_queue_id, &message_s, sizeof(message_s) - sizeof(type), type, flag) == -1) {
         throw IPCException("Message queue message was not received");
     }
 

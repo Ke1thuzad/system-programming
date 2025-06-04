@@ -2,7 +2,7 @@
 
 int main() {
     try {
-        GameWorker compiler("/sys/", 112, DEBUG);
+        GameWorker compiler("/tmp", 1234, DEBUG);
 
         while (!GameWorker::global_stop_requested.load()) {
             std::this_thread::sleep_for(std::chrono::seconds((long) 1));

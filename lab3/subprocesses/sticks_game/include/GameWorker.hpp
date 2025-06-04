@@ -25,7 +25,6 @@ public:
 
     void Move(int move_amount);
 
-    // TODO: Replace with thinking through
     void BotMove();
 
     [[nodiscard]] int CheckWin() const;
@@ -35,7 +34,7 @@ class GameWorker {
     MessageQueue _messageQueue;
     std::unique_ptr<Logger> _logger;
 
-    std::unordered_map<unsigned long long, SticksGame> _games;
+    std::unordered_map<int64_t, SticksGame> _games;
 
     std::thread _worker_thread;
     volatile bool _isRunning;
@@ -62,9 +61,9 @@ public:
 
     int HandleClientCommand();
 
-    void NewGame(unsigned long long user_id);
+    void NewGame(int64_t user_id);
 
-    void MoveCommand(unsigned long long user_id, int move_amount);
+    void MoveCommand(int64_t user_id, int move_amount);
 
-    void FinishGame(auto game, int win);
+    void FinishGame(std::unordered_map<int64_t, SticksGame>::iterator game, int win);
 };

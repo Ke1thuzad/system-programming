@@ -97,7 +97,7 @@ public:
         std::unique_ptr<Logger> Build() {
             if (queue_ptr) return std::unique_ptr<Logger>(new Logger(level, queue_ptr));
             if (ext_ofstream_ptr) return std::unique_ptr<Logger>(new Logger(level, ext_ofstream_ptr));
-            return std::unique_ptr<Logger>(new Logger(level, directory, prefix)); // Default file
+            return std::unique_ptr<Logger>(new Logger(level, directory, prefix));
         }
     };
 
