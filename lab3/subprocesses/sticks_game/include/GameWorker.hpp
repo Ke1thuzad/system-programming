@@ -49,8 +49,7 @@ public:
     enum messageTypes {
         CLIENT_CONNECT = 3,
         CLIENT_MOVE,
-        SERVER_MOVE,
-        SERVER_FINISH_GAME
+        SERVER_MOVE
     };
 
     inline static std::atomic<bool> global_stop_requested;

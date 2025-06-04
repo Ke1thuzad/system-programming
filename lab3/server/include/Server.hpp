@@ -23,7 +23,7 @@ class Server {
 
     std::unique_ptr<Logger> _logger;
 
-    std::vector<std::thread> compiler_threads;
+    std::vector<std::thread> subserver_threads;
 
     enum States {
         MAIN_MENU,
@@ -34,8 +34,7 @@ public:
     enum messageQueueTypes {
         CLIENT_CONNECT = 3,
         CLIENT_MOVE,
-        SERVER_MOVE,
-        SERVER_FINISH_GAME
+        SERVER_MOVE
     };
 
     Server(const char *token_path, int proj_id, uint16_t port, LogLevels level = WARNING) : _message_queue(token_path, proj_id),
@@ -71,7 +70,7 @@ public:
     void HandleClientData(const DataBuffer& buffer, socket_t sock) {
         if (buffer.size() > 1) {
             if (_current_state == COMPILER) {
-                compiler_threads.emplace_back(&Server::CompilerThread, this, buffer, sock);
+                subserver_threads.emplace_back(&Server::CompilerThread, this, buffer, sock);
             } else {
                 throw ServerException("Unknown command");
             }
@@ -81,18 +80,20 @@ public:
 
         switch (_current_state) {
             case MAIN_MENU:
-                MainMenuCommands(arg);
+                MainMenuCommands(sock, arg);
                 break;
             case COMPILER:
+                throw ServerException("Incorrect file");
                 break;
             case GAME:
+                subserver_threads.emplace_back(&Server::GameHandler, this, sock, arg);
                 break;
             default:
                 throw ServerException("Unknown state");
         }
     }
 
-    void MainMenuCommands(int command) {
+    void MainMenuCommands(socket_t sock, int command) {
         command -= '0';
 
         switch (command) {
@@ -101,6 +102,7 @@ public:
                 break;
             case 1:
                 _current_state = GAME;
+                _message_queue.send(sock, 1, CLIENT_CONNECT);
                 break;
             case 2:
                 this->~Server();
@@ -108,6 +110,38 @@ public:
             default:
                 throw ServerException("Unknown command");
         }
+    }
+
+    void GameHandler(socket_t sock, int command) {
+        if (!isdigit(command))
+            throw ServerException("Incorrect command");
+
+        _message_queue.send(sock, command, CLIENT_MOVE);
+
+        MessageQueue::Message msg{};
+
+        do {
+            msg = _message_queue.receive(SERVER_MOVE);
+            if (msg.user_id != sock) {
+                _message_queue.send(msg.user_id, msg.arg, msg.mtype);
+            } else {
+                break;
+            }
+        } while (true);
+
+        std::string str;
+
+        if ((msg.mtype << 7) != 0) {
+            if (msg.arg == 1) {
+                str = "You have won a sticks game!";
+            } else {
+                str = "You have lost a sticks game!";
+            }
+        } else {
+            str = "Server has moved. Current stick amount: " + std::to_string(msg.arg);
+        }
+
+        _server->send(sock, {str.begin(), str.end()});
     }
 
     void CompilerThread(const DataBuffer& buffer, socket_t sock) {

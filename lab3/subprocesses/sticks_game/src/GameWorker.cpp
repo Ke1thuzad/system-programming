@@ -93,11 +93,11 @@ void GameWorker::FinishGame(auto game, int win) {
     if (win == 1) {
         _logger->LogInfo(std::format("User {} has won a game", game->first));
 
-        _messageQueue.send(game->first, 1, SERVER_FINISH_GAME);
+        _messageQueue.send(game->first, 1, SERVER_MOVE | (1 << 7));
     } else {
         _logger->LogInfo(std::format("User {} has lost a game", game->first));
 
-        _messageQueue.send(game->first, -1, SERVER_FINISH_GAME);
+        _messageQueue.send(game->first, -1, SERVER_MOVE | (1 << 7));
     }
 
     _games.erase(game);
@@ -113,7 +113,7 @@ void SticksGame::Move(int move_amount) {
 }
 
 int SticksGame::CheckWin() const {
-    if (current_amount == 0) {
+    if (current_amount <= 0) {
         return (!move) * 2 - 1;
     }
 
