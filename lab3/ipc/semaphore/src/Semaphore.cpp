@@ -19,7 +19,7 @@ Semaphore::Semaphore(const char *token_path, int proj_id, int sem_count, int def
     union semun arg{};
     arg.val = default_value;
 
-    if (semctl(_semaphore_id, 0, SETALL, arg) == -1) {
+    if (semctl(_semaphore_id, 0, SETALL, &arg) == -1) {
         throw IPCException("Semaphores were not set to default value");
     }
 }

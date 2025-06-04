@@ -1,3 +1,5 @@
+#pragma once
+
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
@@ -13,20 +15,25 @@ class SharedMemory {
 
     Semaphore _semaphore;
 
-    bool _empty = true;
-
     unsigned int _cursor = 0;
 public:
+    unsigned int read_cursor = 0;
 
     SharedMemory(const char *token_path, int proj_id, size_t size);
 
     ~SharedMemory();
 
-    void write(void *data, unsigned int length, unsigned int position_offset = 0, bool empty = false);
+    void rewrite(void *data, unsigned int length, unsigned int position_offset = 0);
 
-    [[nodiscard]] void *read(unsigned int length, unsigned int position_offset = 0) const;
+    void write(void *data, unsigned int length);
+
+    [[nodiscard]] char *read(unsigned int length, unsigned int position_offset = 0);
+
+    [[nodiscard]] char *readNext(unsigned int length);
 
     void clear();
 
-    bool isEmpty() const { return _empty; }
+    [[nodiscard]] bool readyToRead(unsigned char flag) const { return *_shared_memory_pointer == flag; }
+
+    [[nodiscard]] bool isEmpty() const { return readyToRead(0); }
 };

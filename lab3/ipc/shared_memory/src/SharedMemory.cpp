@@ -27,20 +27,31 @@ SharedMemory::~SharedMemory() {
     shmctl(_shared_memory_id, IPC_RMID, nullptr);
 }
 
-void SharedMemory::write(void *data, unsigned int length, unsigned int position_offset, bool empty) {
+void SharedMemory::rewrite(void *data, unsigned int length, unsigned int position_offset) {
     _semaphore.wait_get(0);
 
     for (unsigned int i = 0; i < length; i++){
         *(_shared_memory_pointer + position_offset + i) = *((char *) data + i);
     }
 
-    _semaphore.release(0);
-
-    _empty = empty;
     _cursor += length;
+
+    _semaphore.release(0);
 }
 
-void *SharedMemory::read(unsigned int length, unsigned int position_offset) const {
+void SharedMemory::write(void *data, unsigned int length) {
+    _semaphore.wait_get(0);
+
+    for (unsigned int i = 0; i < length; i++){
+        *(_shared_memory_pointer + _cursor + i) = *((char *) data + i);
+    }
+
+    _cursor += length;
+
+    _semaphore.release(0);
+}
+
+char * SharedMemory::read(unsigned int length, unsigned int position_offset) {
     char *data = new char[length];
 
     _semaphore.wait_get(0);
@@ -49,20 +60,28 @@ void *SharedMemory::read(unsigned int length, unsigned int position_offset) cons
         *(data + i) = *(_shared_memory_pointer + position_offset + i);
     }
 
+    read_cursor += length;
+
     _semaphore.release(0);
 
-    return (void *) data;
+    return data;
 }
 
 void SharedMemory::clear() {
     _semaphore.wait_get(0);
 
-    for (unsigned int i = 0; i < _cursor; ++i) {
+    int i = 0;
+
+    while (*(_shared_memory_pointer + i) != 0) {
         *(_shared_memory_pointer + i) = 0;
+        i++;
     }
 
-    _semaphore.release(0);
-
     _cursor = 0;
-    _empty = true;
+
+    _semaphore.release(0);
+}
+
+char *SharedMemory::readNext(unsigned int length) {
+    return read(length, read_cursor);
 }

@@ -66,23 +66,23 @@ public:
 class IPCException : public std::runtime_error {
 public:
     explicit IPCException(const std::string& message)
-            : std::runtime_error("IPC error: " + message) {}
+            : std::runtime_error("[IPC] " + message) {}
 };
 
 class ThreadException : public std::runtime_error {
 public:
     explicit ThreadException(const std::string& message)
-            : std::runtime_error("Thread error: " + message) {}
+            : std::runtime_error("[Thread] " + message) {}
 };
 
 class SubServerException : public std::runtime_error {
 public:
     explicit SubServerException(const std::string& message)
-            : std::runtime_error("Subserver error: " + message) {}
+            : std::runtime_error("[SubServer] " + message) {}
 };
 
 class ServerException : public std::runtime_error {
 public:
     explicit ServerException(const std::string& message)
-            : std::runtime_error("Server error: " + message) {}
+            : std::runtime_error("[Server] " + message) {}
 };

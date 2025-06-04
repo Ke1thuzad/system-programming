@@ -1,17 +1,23 @@
+#pragma once
+
 #include <unistd.h>
 #include <iostream>
 #include <fstream>
 #include <filesystem>
+#include <sys/wait.h>
+#include <thread>
+#include <csignal>
 
 #include "Exceptions.hpp"
-#include "Semaphore.hpp"
 #include "SharedMemory.hpp"
 #include "ThreadSafeQueue.h"
 #include "Logger.h"
 
 #define MAX_FILE_SIZE (10 * (2 << 22))  // 10 MB
 
-#define SIZE_OFFSET 4
+#define SIZE_OFFSET (sizeof(uint32_t))
+
+void FileToCompilationData(const std::filesystem::path& path, ushort &filename_size, std::string& filename, uint32_t &size, char** data);
 
 class CompilerWorker {
     using fspath = std::filesystem::path;
@@ -19,101 +25,35 @@ class CompilerWorker {
     Semaphore _semaphore;
     SharedMemory _sharedMemory;
 
-    ThreadSafeQueue<fspath> _fileQueue;
+    ThreadSafeQueue<std::pair<uint64_t, fspath>> _fileQueue;
 
-    LogLevels level;
     std::unique_ptr<Logger> _logger;
 
-    bool isRunning = false;
+    std::thread _worker_thread;
+    volatile bool _isRunning;
+
+    static void signal_handler(int signum) {
+        if (signum == SIGINT || signum == SIGTERM || signum == SIGKILL || signum == SIGTSTP) {
+            global_stop_requested.store(true);
+        }
+    }
+
 public:
-    CompilerWorker(LogLevels levelBorder = WARNING) : _semaphore("/sys/", 1, 1),
-                                                      _sharedMemory("/sys/", 2, MAX_FILE_SIZE), _fileQueue(),
-                                                      level(levelBorder) {
-        _logger = Logger::Builder().SetLogLevel(level).SetPrefix("subserver_compiler").Build();
+    inline static std::atomic<bool> global_stop_requested;
 
-        isRunning = true;
-        Run();
-    }
+    CompilerWorker(const char *token_path, int proj_id, LogLevels levelBorder = WARNING);
 
-    void Run() {
-        while (isRunning) {
-            if (_sharedMemory.isEmpty()) continue;
+    ~CompilerWorker();
 
-            ReadNextFile();
-            if (!_fileQueue.IsEmpty()) {
-                fspath file;
-                _fileQueue.Pop(file);
+    void Run();
 
-                try {
-                    Compile(file);
-                } catch (const SubServerException &exception) {
-                    _logger->LogWarning(exception.what());
-                } catch (const std::exception &exception) {
-                    _logger->LogError(exception.what());
-                }
-            }
-        }
-    }
+    void ReadNextFile();
 
-    void ReadNextFile() {
-        // FORMAT:
-        // [2 bytes ushort filename_size] [--- *filename_size* bytes for filename ---] [4 bytes uint32_t size] [--- *size* bytes of file data ---] --- UP TO 10MB
+    void SendFileBack(uint64_t user_id, const fspath &path);
 
-        ushort filename_size = *((ushort *) _sharedMemory.read(SIZE_OFFSET));
-        char *filename = (char *) _sharedMemory.read(filename_size, SIZE_OFFSET);
+    void Compile(uint64_t user_id, const CompilerWorker::fspath &path);
 
-        uint32_t size = *((uint32_t *) _sharedMemory.read(SIZE_OFFSET, SIZE_OFFSET + filename_size));
-        void *data = _sharedMemory.read(size, 2 * SIZE_OFFSET + filename_size);
+    void CompileCPP(uint64_t user_id, const CompilerWorker::fspath &path);
 
-        _sharedMemory.clear();
-
-
-        _semaphore.wait_get(1);
-
-        fspath path("files/");
-
-        path /= filename;
-
-        std::ofstream writer(path, std::ios_base::binary | std::ios_base::out | std::ios_base::trunc);
-
-        writer.write((char *) data, size);
-
-        writer.close();
-
-        _semaphore.release(1);
-
-
-        _fileQueue.Push(path);
-    }
-
-    static void Compile(const fspath &path) {
-        if (path.extension() == "cpp")
-            CompileCPP(path);
-        else if (path.extension() == ".tex")
-            CompileTex(path);
-        else
-            throw SubServerException("Incorrect file format");
-    }
-
-    static void CompileCPP(const fspath &path) {
-        pid_t pid = fork();
-        if (pid == 0) {
-            execlp("/usr/bin/g++", "g++", path.c_str(), nullptr);
-
-            throw SubServerException("C++ file was not compiled");
-        } else {
-            // TODO
-        }
-    }
-
-    static void CompileTex(const fspath &path) {
-        pid_t pid = fork();
-        if (pid == 0) {
-            execlp("/usr/bin/pdflatex", "pdflatex", path.c_str(), nullptr);
-
-            throw SubServerException("LaTeX file was not compiled");
-        } else {
-            // TODO
-        }
-    }
+    void CompileTex(uint64_t user_id, const CompilerWorker::fspath &path);
 };
