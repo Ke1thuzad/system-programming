@@ -17,8 +17,8 @@ MessageQueue::MessageQueue(const char *token_path, int proj_id) {
     }
 }
 
-void MessageQueue::send(char *message, long type, int flag) const {
-    Message message_s {type, message};
+void MessageQueue::send(unsigned long long user_id, int arg, long type, int flag) const {
+    Message message_s {type, user_id, arg};
 
     if (msgsnd(_message_queue_id, &message_s, sizeof(message_s), flag) == -1) {
         throw IPCException("Message queue message was not sent");
