@@ -156,7 +156,7 @@ void Server::HandleGameStart(socket_t sock, ClientConnection& clientConnection) 
 
 
     DataBuffer response{GAME_START};
-    std::string msg = "Game started! Take 1-3 sticks each turn.";
+    std::string msg = "Game started! You have 15 sticks. Take 1-3 sticks each turn.";
     response.insert(response.end(), msg.begin(), msg.end());
 
     clientConnection.socket->send(response);

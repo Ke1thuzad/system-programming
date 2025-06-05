@@ -58,6 +58,18 @@ class Server {
 
     std::map<socket_t, ClientConnection> _connected_clients;
 
+    void HandleClientData(const DataBuffer &buffer, socket_t sock);
+
+    void HandleMainMenu(socket_t sock, int command, ClientConnection &clientConnection);
+
+    void HandleCompilerRequest(const DataBuffer &buffer, socket_t sock,
+                               ClientConnection &clientConnection);
+
+    void HandleGameStart(socket_t sock, ClientConnection &clientConnection);
+
+    void HandleGameMove(socket_t sock, int move,
+                        ClientConnection &clientConnection);
+
 public:
     enum MessageQueueTypes {
         CLIENT_CONNECT = 3,
@@ -72,17 +84,4 @@ public:
     void Start();
 
     void Stop();
-
-private:
-    void HandleClientData(const DataBuffer &buffer, socket_t sock);
-
-    void HandleMainMenu(socket_t sock, int command, ClientConnection &clientConnection);
-
-    void HandleCompilerRequest(const DataBuffer &buffer, socket_t sock,
-                               ClientConnection &clientConnection);
-
-    void HandleGameStart(socket_t sock, ClientConnection &clientConnection);
-
-    void HandleGameMove(socket_t sock, int move,
-                        ClientConnection &clientConnection);
 };
